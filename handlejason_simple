@@ -1,0 +1,130 @@
+import re
+import json
+import pymysql
+
+'''
+handlejason_all对全部文件进行获取后，存在没有成功获取的文件
+此程序用于处理落单的文件
+处理单个Jason文件的提取
+'''
+
+class CrawlTmail():
+    def __init__(self):
+        self.id = [] #评论的id
+        self.aliMallSeller = [] #
+        self.anony = [] #匿名
+        self.rateDate = []  #评论时间
+        self.rateContent = [] #评论内容
+        self.fromMall = []
+        self.sellerId = [] #卖家id
+        self.reply = [] #卖家回复
+        # self.pics = [] #图片
+        self.networkType = [] #网络类型
+        self.bodyColor = [] #颜色分类
+        self.package = [] #套餐类型
+        self.storageCapacity = [] #存储容量
+        self.goldUser = [] #超级会员
+        # self.tradeEndTime = [] #交易时间
+        self.displayUserNick = [] #用户名
+        self.cmsSource = [] #商品来源
+        # self.gmtCreateTime = [] #格林尼治时间？
+        self.useful = [] #是非有用
+        self.tamllSweetLevel = [] #天猫等级
+        self.userVipLevel = [] #VIP等级
+
+        self.conn = conn
+        self.cur = cur
+
+    def getInformation(self):
+        # 获取每一页的商品信息
+        # 参数为Jasonname列表里第i个文件名
+        # 打开jason文件
+        i = 0
+        # path = self.jasonname[i]
+        f = open("D:/iPaddata/jason_apple4.txt", "rb")
+        jasonfile = f.read()
+        f.close()
+        # 转码
+        s = b'{' + jasonfile + b'}'
+        s = s.decode("utf-8")
+        a = json.loads(s)
+        b = a.get("rateDetail")
+        c = b.get("rateList")
+        # print(c)
+
+        for k in range(0, 20):
+            self.id.append(c[k].get("id"))
+            self.rateDate.append(c[k].get("rateDate"))
+            self.rateContent.append(c[k].get("rateContent"))
+            self.fromMall.append(c[k].get("fromMall"))
+            self.sellerId.append(c[k].get("sellerId"))
+            self.aliMallSeller.append(c[k].get("aliMallSeller"))
+            self.reply.append(c[k].get("reply"))
+            # self.pics.append(c[k].get("pics")) #二维列表
+
+            # print("ok1")
+
+            tt = c[k].get("auctionSku")
+
+            networkType_re = re.compile("(?<=网络类型:).*?(?=;)")
+            self.networkType.append(networkType_re.findall(tt)[0])
+
+            bodyColor_re = re.compile("(?<=颜色分类:).*?(?=;)")
+            self.bodyColor.append(bodyColor_re.findall(tt)[0])
+            # print("ok2")
+
+            package_re = re.compile("([^套餐类型:]+)$")
+            self.package.append(package_re.findall(tt)[0])
+
+            storageCapacity_re = re.compile("(?<=存储容量:).*?GB")
+            self.storageCapacity.append(storageCapacity_re.findall(tt)[0])
+
+            self.anony.append(c[k].get("anony"))
+            self.goldUser.append(c[k].get("goldUser"))
+            # self.tradeEndTime.append(c[k].get("tradeEndTime"))
+            self.displayUserNick.append(c[k].get("displayUserNick"))
+            self.cmsSource.append(c[k].get("cmsSource"))
+            # self.gmtCreateTime.append(c[k].get("gmtCreateTime"))
+            self.useful.append(c[k].get("useful"))
+            self.tamllSweetLevel.append(c[k].get("tamllSweetLevel"))
+            self.userVipLevel.append(c[k].get("userVipLevel"))
+
+        print("*****本页爬取完成*****")
+
+        # print(self.id,self.aliMallSeller,self.anony,self.rateDate,self.rateContent,self.fromMall,self.sellerId,self.reply,self.pics,self.networkType,self.bodyColor,self.package,self.storageCapacity,self.goldUser,self.tradeEndTime,self.displayUserNick,self.cmsSource,self.gmtCreateTime,self.useful,self.tamllSweetLevel,self.userVipLevel,)
+        # print(self.networkType, self.bodyColor, self.package, self.storageCapacity)
+        # 可以对c进行操作了，字典操作
+
+
+    def Savesql(self):
+        #存入数据库
+        # 存入评论人信息，评论信息
+        i = 0
+        for k in range(0, 20):
+            param = (self.id[k],self.aliMallSeller[k],self.anony[k],self.rateDate[k],self.rateContent[k],self.fromMall[k],self.sellerId[k],self.reply[k],self.networkType[k],self.bodyColor[k],self.package[k],self.storageCapacity[k],self.goldUser[k],self.displayUserNick[k],self.cmsSource[k],self.useful[k],self.tamllSweetLevel[k],self.userVipLevel[k])
+            sql = "insert into commentinf (id,aliMallSeller,anony,rateDate,rateContent,fromMall,sellerId,reply,networkType,bodyColor,package,storageCapacity,goldUser,displayUserNick,cmsSource,useful,tamllSweetLevel,userVipLevel) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+            self.cur.execute(sql, param)
+            self.conn.commit()
+
+
+
+
+    def startCrawl(self):
+        self.getInformation()
+        # self.Savesql()
+
+#数据库链接
+conn= pymysql.connect(
+        host='localhost',
+        port=3306,
+        user='root',
+        passwd='009795',
+        db='pythonsql',
+        charset='utf8',
+        cursorclass=pymysql.cursors.DictCursor,
+        )
+cur = conn.cursor()
+
+CrawlTmail().startCrawl()
+
+conn.close()
