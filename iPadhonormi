@@ -1,0 +1,113 @@
+import time
+import re
+from selenium import webdriver
+'''
+获取各个商品的评论网址，将评论信息保存至Jason文件
+
+出现的问题：
+1.获取评论的页面重定向，返回一个登录网址
+    解决办法：增设配置文件，让selenium带着配置文件打开网页，可避免登录
+2.获取评论的页面重定向，返回滑动验证网址
+    解决办法：天猫识别出了机器人，在程序末尾加上time.sleep（10）减缓爬虫速度
+
+需要注意的点：
+1.Jason文件的命名问题,记得改参数
+
+'''
+
+class CrawlTmail():
+    def __init__(self):
+        # apple store
+        # self.url = "https://detail.tmall.com/item.htm?spm=a220m.1000858.1000725.11.31234559KmdT0f&id=580996961794&areaId=440400&user_id=1917047079&cat_id=2&is_b=1&rn=b32ca6d8c102ca0027c9eb9feda21e16&sku_properties=10004:11316788"
+        # 普通网址(评论154）
+
+        #获取评论url
+        self.itemid = "" # 商品id
+        self.sellerid = "" # 店家id
+        self.commentUrl = "" #评论网址
+        self.comurls = []
+
+        self.commentsource = []  # 存放每一页评论的链接（Jason文件）
+        self.jasonname = [] # 存放Jason文件的文件名
+
+        # 需修改的参数
+        self.url = "https://detail.tmall.com/item.htm?spm=a220m.1000858.1000725.61.bb1348819XaZLe&id=573914214215&skuId=3749564513906&areaId=440400&user_id=263726286&cat_id=2&is_b=1&rn=e3c31c47e2d22ae2270bfd9edea7bad2"
+        # self.prefix = "apple" # jason文件命名的前缀
+        # self.prefix = "honor"
+        self.prefix = "mi"
+
+        self.beginNum = 1 # 注意Jason文件命名的编号
+
+    def getid(self):
+        # 从url中获取商品id 和店家id
+        source = self.url
+        # 匹配商品id
+        itemid_re = re.compile('(?<=id\=)\d+(?=\&)')
+        self.itemid = itemid_re.search(str(source)).group(0)
+        # 匹配店家的id
+        sellerid_re = re.compile('(?<=user_id\=)\d+(?=\&)')
+        self.sellerid = sellerid_re.search(str(source)).group(0)
+        print(self.itemid, self.sellerid)
+
+    def getCommentUrl(self):
+        # 获得第一页评论的url
+        pg = 1
+        ## jason文件源码
+        comurl = "https://rate.tmall.com/list_detail_rate.htm?itemId=" + str(self.itemid) \
+                 + "&spuId=865660541&sellerId=" + str(self.sellerid) + "&order=3&currentPage=" + str(pg)
+        self.commentUrl = comurl
+        print('评论网址：',comurl)
+
+    def getJsaonfile(self):
+        # 配置信息，避免谷歌打开一个没有配置文件的页面
+        path = r"user-data-dir=C:\Users\j\AppData\Local\Google\Chrome\User Data"
+        options = webdriver.ChromeOptions()
+        options.add_argument(path)  # 把配置文件路径添加进来
+        options.add_argument('disable-infobars')  # 忽略‘Chrome正在受到自动软件的控制’提示
+        driver = webdriver.Chrome(chrome_options=options)  # 添加谷歌配置
+
+        driver.get(self.commentUrl)
+        # print(driver.page_source)
+        #寻找最后一页
+        lastpage_re = re.compile('(?<=lastPage\":)\d+(?=,)')
+        lastpage = int(lastpage_re.search(driver.page_source).group(0))
+        print(lastpage)
+
+        # 保存评论网址
+        for pg in range(1,lastpage+1):
+        # for pg in range(1,6):
+            cc =  "https://rate.tmall.com/list_detail_rate.htm?itemId=" + str(self.itemid) \
+                 + "&spuId=865660541&sellerId=" + str(self.sellerid) + "&order=3&currentPage=" + str(pg)
+            self.comurls.append(cc)
+        print(self.comurls)
+        print(len(self.comurls))
+
+        #将Jason文件存入列表
+        num = self.beginNum
+        for k in range(0,len(self.comurls)):
+            print(k)
+            driver.get(self.comurls[k])
+            file = self.prefix + str(num)
+            num += 1
+            file = "D:/iPaddata/jason_"+ file + ".txt"
+            self.jasonname.append(file)  # file 是一个路径
+            f = open(file, "wb")
+            jason_re = re.compile("(?<=jsonp128\(\{).*?(?=\}\))")
+            tt = jason_re.findall(driver.page_source)[0]
+            f.write(tt.encode('UTF-8'))
+            f.close()
+            time.sleep(10)
+        print("*****接下来爬取第",num ,"页*****")
+        # driver.close()
+
+    def startCrawl(self):
+        # 启动函数
+        self.getid()
+        self.getCommentUrl()
+        self.getJsaonfile()
+
+
+start = time.clock()
+CrawlTmail().startCrawl()
+end = time.clock()
+print("用时为：", end - start, 's')
